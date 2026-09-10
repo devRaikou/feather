@@ -1,0 +1,25 @@
+# Append this item to `jobs` in /srv/sghq/ci/config/jenkins.yaml, then reload CasC.
+# The public personal fork is outside the survivalgam-es organization folder.
+jobs:
+  - script: |
+      pipelineJob('feather') {
+        displayName('Feather')
+        description('Build devRaikou/feather develop and stage Feather.jar for Gate.')
+        parameters {
+          choiceParam('ROLLOUT_TARGET', ['all', 'build', 'none'], 'Restart all Feather backends, only Build, or stage the jar for a later Gate rollout.')
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/devRaikou/feather.git')
+                }
+                branch('*/develop')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }
