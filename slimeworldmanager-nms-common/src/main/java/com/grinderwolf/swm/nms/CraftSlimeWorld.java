@@ -4,6 +4,7 @@ import com.flowpowered.nbt.*;
 import com.flowpowered.nbt.stream.NBTInputStream;
 import com.flowpowered.nbt.stream.NBTOutputStream;
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdOutputStream;
 import com.grinderwolf.swm.api.exceptions.WorldAlreadyExistsException;
 import com.grinderwolf.swm.api.loaders.SlimeLoader;
 import com.grinderwolf.swm.api.utils.SlimeFormat;
@@ -26,7 +27,8 @@ public class CraftSlimeWorld implements SlimeWorld {
 
     private static final int CHUNK_DATA_SEGMENTED_MARKER = -1;
 
-    private static final int CHUNK_SEGMENT_TARGET_RAW_BYTES = 64 * 1024 * 1024;
+    // The reader inflates one segment at a time. Keep its temporary buffer small too.
+    private static final int CHUNK_SEGMENT_TARGET_RAW_BYTES = 4 * 1024 * 1024;
 
     private SlimeLoader loader;
     private final String name;
@@ -221,7 +223,7 @@ public class CraftSlimeWorld implements SlimeWorld {
             outStream.write(compressedMapArray);
 
         } catch (IOException ex) {
-            ex.printStackTrace();
+            throw new UncheckedIOException("Failed to serialize world '" + name + "'", ex);
         }
 
         return outByteStream.toByteArray();
@@ -278,29 +280,19 @@ public class CraftSlimeWorld implements SlimeWorld {
         List<Segment> segments = new ArrayList<>();
         long totalRaw = 0L;
 
-        ByteArrayOutputStream segBaos = new ByteArrayOutputStream(Math.min(CHUNK_SEGMENT_TARGET_RAW_BYTES, 8 * 1024 * 1024));
-        CountingOutputStream counter = new CountingOutputStream(segBaos);
-        DataOutputStream segOut = new DataOutputStream(counter);
-
-        int chunksInSeg = 0;
-
-        for (SlimeChunk chunk : chunks) {
-            writeSingleChunk(segOut, chunk, worldVersion);
-            chunksInSeg++;
-
-            if (counter.getCount() >= CHUNK_SEGMENT_TARGET_RAW_BYTES && chunksInSeg > 0) {
-                Segment s = finalizeSegment(segBaos, (int) counter.getCount());
-                segments.add(s);
-                totalRaw += s.rawLen;
-
-                segBaos.reset();
-                counter.reset();
-                chunksInSeg = 0;
+        int chunkIndex = 0;
+        while (chunkIndex < chunks.size()) {
+            ByteArrayOutputStream compressed = new ByteArrayOutputStream();
+            // Compress as chunks are written, without retaining or copying raw segment data.
+            CountingOutputStream counter = new CountingOutputStream(
+                    new BufferedOutputStream(new ZstdOutputStream(compressed)));
+            try (DataOutputStream segOut = new DataOutputStream(counter)) {
+                do {
+                    writeSingleChunk(segOut, chunks.get(chunkIndex++), worldVersion);
+                } while (chunkIndex < chunks.size() && counter.getCount() < CHUNK_SEGMENT_TARGET_RAW_BYTES);
             }
-        }
 
-        if (counter.getCount() > 0) {
-            Segment s = finalizeSegment(segBaos, (int) counter.getCount());
+            Segment s = new Segment(compressed.toByteArray(), Math.toIntExact(counter.getCount()));
             segments.add(s);
             totalRaw += s.rawLen;
         }
@@ -314,12 +306,6 @@ public class CraftSlimeWorld implements SlimeWorld {
             outStream.writeInt(s.rawLen);
             outStream.write(s.compressed);
         }
-    }
-
-    private static Segment finalizeSegment(ByteArrayOutputStream segBaos, int rawLen) {
-        byte[] raw = segBaos.toByteArray();
-        byte[] compressed = Zstd.compress(raw);
-        return new Segment(compressed, rawLen);
     }
 
     private static void writeSingleChunk(DataOutputStream outStream, SlimeChunk chunk, byte worldVersion) throws IOException {
@@ -396,10 +382,6 @@ public class CraftSlimeWorld implements SlimeWorld {
 
         long getCount() {
             return count;
-        }
-
-        void reset() {
-            count = 0L;
         }
 
         @Override public void write(int b) throws IOException { delegate.write(b); count++; }
