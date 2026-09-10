@@ -26,7 +26,8 @@ Pipeline job because the existing Jenkins organization folder only discovers
    Build startup logs. Use `all` when ready to update the remaining backends.
 
 After the first build, Jenkins polls Git every five minutes and builds new
-`develop` commits. Anonymous checkout requires no GitHub App access or webhook.
+`develop` commits, updating only Build by default. Select `all` manually to roll
+out the other backends too. Anonymous checkout requires no GitHub App access or webhook.
 The agent needs Java 21, Maven, Bash, `gate-rollout`, `NEXUS_BASE_URL`, and the
 existing `nexus-deploy` credential. Credentials are supplied by Jenkins at runtime.
 Nexus supplies the Swift-compatible Spigot server dependency; the POM repositories

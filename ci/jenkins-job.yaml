@@ -6,7 +6,7 @@ jobs:
         displayName('Feather')
         description('Build devRaikou/feather develop and stage Feather.jar for Gate.')
         parameters {
-          choiceParam('ROLLOUT_TARGET', ['all', 'build', 'none'], 'Restart all Feather backends, only Build, or stage the jar for a later Gate rollout.')
+          choiceParam('ROLLOUT_TARGET', ['build', 'all', 'none'], 'Restart only Build, all Feather backends, or stage the jar for a later Gate rollout.')
         }
         definition {
           cpsScm {

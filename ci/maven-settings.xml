@@ -9,6 +9,15 @@
             <password>${env.NEXUS_PASS}</password>
         </server>
     </servers>
+    <mirrors>
+        <!-- Explicitly allow this trusted Docker-network repository over HTTP.
+             Maven's default external HTTP blocker still applies elsewhere. -->
+        <mirror>
+            <id>sghq-nexus</id>
+            <mirrorOf>sghq-nexus</mirrorOf>
+            <url>${env.NEXUS_BASE_URL}/repository/maven-public/</url>
+        </mirror>
+    </mirrors>
     <profiles>
         <profile>
             <id>sghq-ci</id>

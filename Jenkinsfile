@@ -13,7 +13,7 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'ROLLOUT_TARGET', choices: ['all', 'build', 'none'], description: 'Restart all Feather backends, only Build, or stage the jar for a later Gate rollout.')
+        choice(name: 'ROLLOUT_TARGET', choices: ['build', 'all', 'none'], description: 'Restart only Build, all Feather backends, or stage the jar for a later Gate rollout.')
     }
 
     stages {
