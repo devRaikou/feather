@@ -48,9 +48,7 @@ public class CustomWorldServer extends WorldServer {
 
         this.pvpMode = propertyMap.getBoolean(SlimeProperties.PVP);
 
-        // Load all chunks
-        CustomChunkLoader chunkLoader = ((CustomDataManager) this.getDataManager()).getChunkLoader();
-        chunkLoader.loadAllChunks(this);
+        // The chunk provider converts Slime chunks on demand through CustomChunkLoader.
     }
 
     @Override

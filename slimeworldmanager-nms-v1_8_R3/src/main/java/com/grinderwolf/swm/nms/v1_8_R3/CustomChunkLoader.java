@@ -29,14 +29,7 @@ public class CustomChunkLoader implements IChunkLoader {
 
     private final CraftSlimeWorld world;
 
-    void loadAllChunks(CustomWorldServer server) {
-        for (SlimeChunk chunk : new ArrayList<>(world.getChunks().values())) {
-            Chunk nmsChunk = createChunk(server, chunk);
-            world.updateChunk(new NMSSlimeChunk(nmsChunk));
-        }
-    }
-
-    private Chunk createChunk(CustomWorldServer server, SlimeChunk chunk) {
+    private Chunk createChunk(World server, SlimeChunk chunk) {
         int x = chunk.getX();
         int z = chunk.getZ();
 
@@ -57,8 +50,9 @@ public class CustomChunkLoader implements IChunkLoader {
         LOGGER.debug("Loading chunk sections for chunk (" + x + ", " + z + ") on world " + world.getName());
         ChunkSection[] sections = new ChunkSection[16];
 
-        for (int sectionId = 0; sectionId < chunk.getSections().length; sectionId++) {
-            SlimeChunkSection slimeSection = chunk.getSections()[sectionId];
+        SlimeChunkSection[] slimeSections = chunk.getSections();
+        for (int sectionId = 0; sectionId < slimeSections.length; sectionId++) {
+            SlimeChunkSection slimeSection = slimeSections[sectionId];
 
             if (slimeSection != null) {
                 ChunkSection section = new ChunkSection(sectionId << 4, true);
@@ -182,21 +176,26 @@ public class CustomChunkLoader implements IChunkLoader {
     // Load chunk
     @Override
     public Chunk a(World nmsWorld, int x, int z) {
-        SlimeChunk slimeChunk = world.getChunk(x, z);
-        Chunk chunk;
+        synchronized (world.getChunks()) {
+            SlimeChunk slimeChunk = world.getChunk(x, z);
 
-        if (slimeChunk == null) {
-            chunk = new Chunk(nmsWorld, x, z);
+            if (slimeChunk == null) {
+                Chunk chunk = new Chunk(nmsWorld, x, z);
+                chunk.d(true);
+                chunk.e(true);
+                return chunk;
+            }
+            if (slimeChunk instanceof NMSSlimeChunk) {
+                return ((NMSSlimeChunk) slimeChunk).getChunk();
+            }
 
-            chunk.d(true);
-            chunk.e(true);
-        } else if (slimeChunk instanceof NMSSlimeChunk) {
-            chunk = ((NMSSlimeChunk) slimeChunk).getChunk();
-        } else { // All SlimeChunk objects should be converted to NMSSlimeChunks when loading the world
-            throw new IllegalStateException("Chunk (" + x + ", " + z + ") has not been converted to a NMSSlimeChunk object!");
+            // Keep untouched chunks in their compact Slime representation. Eagerly
+            // converting the entire map also retains all source arrays until the
+            // conversion finishes, which exhausts the heap on large imported maps.
+            Chunk chunk = createChunk(nmsWorld, slimeChunk);
+            world.updateChunk(new NMSSlimeChunk(chunk));
+            return chunk;
         }
-
-        return chunk;
     }
 
     // Save chunk

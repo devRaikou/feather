@@ -1,6 +1,7 @@
 package com.grinderwolf.swm.plugin.world;
 
 import com.grinderwolf.swm.api.exceptions.UnknownWorldException;
+import com.grinderwolf.swm.api.loaders.SlimeLoader;
 import com.grinderwolf.swm.api.world.SlimeWorld;
 import com.grinderwolf.swm.plugin.SWMPlugin;
 import com.grinderwolf.swm.plugin.log.Logging;
@@ -18,19 +19,23 @@ public class WorldUnlocker implements Listener {
     public void onWorldUnload(WorldUnloadEvent event) {
         SlimeWorld world = SWMPlugin.getInstance().getNms().getSlimeWorld(event.getWorld());
 
-        if (world != null) {
-            Bukkit.getScheduler().runTaskAsynchronously(SWMPlugin.getInstance(), () -> unlockWorld(world));
+        if (world != null && !world.isReadOnly() && world.getLoader() != null) {
+            // Keep only the unlock coordinates in queued/retried tasks. Capturing
+            // the SlimeWorld also retains every chunk after the world is unloaded.
+            SlimeLoader loader = world.getLoader();
+            String worldName = world.getName();
+            Bukkit.getScheduler().runTaskAsynchronously(SWMPlugin.getInstance(), () -> unlockWorld(loader, worldName));
         }
     }
 
-    private void unlockWorld(SlimeWorld world) {
+    private void unlockWorld(SlimeLoader loader, String worldName) {
         try {
-            world.getLoader().unlockWorld(world.getName());
+            loader.unlockWorld(worldName);
         } catch (IOException ex) {
-            Logging.error("Failed to unlock world " + world.getName() + ". Retrying in 5 seconds. Stack trace:");
+            Logging.error("Failed to unlock world " + worldName + ". Retrying in 5 seconds. Stack trace:");
             ex.printStackTrace();
 
-            Bukkit.getScheduler().runTaskLaterAsynchronously(SWMPlugin.getInstance(), () -> unlockWorld(world), 100);
+            Bukkit.getScheduler().runTaskLaterAsynchronously(SWMPlugin.getInstance(), () -> unlockWorld(loader, worldName), 100);
         } catch (UnknownWorldException ignored) {
 
         }
