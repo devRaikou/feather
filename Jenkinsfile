@@ -19,7 +19,15 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                    def revision = checkout scm
+                    if (!revision.GIT_BRANCH || !revision.GIT_COMMIT) {
+                        error('Checkout did not provide the Git branch and commit.')
+                    }
+                    env.GIT_BRANCH = revision.GIT_BRANCH
+                    env.GIT_COMMIT = revision.GIT_COMMIT
+                    echo "Checked out ${env.GIT_BRANCH} at ${env.GIT_COMMIT}"
+                }
             }
         }
 
