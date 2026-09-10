@@ -40,7 +40,9 @@ pipeline {
         stage('Stage and Roll Out') {
             when {
                 expression {
-                    return env.BRANCH_NAME == 'develop' || env.GIT_BRANCH == 'origin/develop'
+                    return env.BRANCH_NAME == 'develop' ||
+                        env.GIT_BRANCH == 'origin/develop' ||
+                        env.GIT_BRANCH == 'refs/remotes/origin/develop'
                 }
             }
             steps {
